@@ -49,6 +49,7 @@ export interface SeedGym {
 
 export interface SeedUser {
   id: string;
+  email: string;
   phone: string;
   name: string;
   role: 'MEMBER' | 'GYM_STAFF' | 'ADMIN';
@@ -230,6 +231,7 @@ export const SEED_GYMS: SeedGym[] = [
 export const SEED_USERS: SeedUser[] = [
   {
     id: 'seed_user_pulse_owner',
+    email: 'owner@pulse.test',
     phone: '+966500000002',
     name: 'Pulse Owner',
     role: 'GYM_STAFF',
@@ -237,6 +239,7 @@ export const SEED_USERS: SeedUser[] = [
   },
   {
     id: 'seed_user_pulse_manager',
+    email: 'hittin.manager@pulse.test',
     phone: '+966500000003',
     name: 'Hittin Manager',
     role: 'GYM_STAFF',
@@ -248,6 +251,7 @@ export const SEED_USERS: SeedUser[] = [
   },
   {
     id: 'seed_user_pulse_desk',
+    email: 'malqa.desk@pulse.test',
     phone: '+966500000004',
     name: 'Malqa Front Desk',
     role: 'GYM_STAFF',
@@ -257,5 +261,11 @@ export const SEED_USERS: SeedUser[] = [
       branchId: 'seed_branch_pulse_malqa',
     },
   },
-  { id: 'seed_user_member', phone: '+966500000010', name: 'Sara', role: 'MEMBER' },
+  {
+    id: 'seed_user_member',
+    email: 'sara@member.test',
+    phone: '+966500000010',
+    name: 'Sara',
+    role: 'MEMBER',
+  },
 ];

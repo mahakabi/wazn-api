@@ -10,3 +10,6 @@ src/generated/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Redis snapshot when redis-server is run from this folder
+dump.rdb

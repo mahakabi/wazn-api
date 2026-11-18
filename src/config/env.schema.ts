@@ -26,8 +26,16 @@ export const envSchema = z.object({
 
   JWT_ACCESS_SECRET: z.string().min(MIN_SECRET_LENGTH),
   JWT_REFRESH_SECRET: z.string().min(MIN_SECRET_LENGTH),
+  OTP_SECRET: z.string().min(MIN_SECRET_LENGTH),
 
-  SMS_PROVIDER_KEY: optionalString,
+  // Defaults point at Mailpit from docker-compose (UI: http://localhost:8025).
+  SMTP_HOST: z.string().default('localhost'),
+  SMTP_PORT: z.coerce.number().int().positive().default(1025),
+  SMTP_SECURE: z.stringbool().default(false),
+  SMTP_USER: optionalString,
+  SMTP_PASS: optionalString,
+  MAIL_FROM: z.string().default('Wazn <no-reply@wazn.local>'),
+
   WHATSAPP_TOKEN: optionalString,
   WHATSAPP_PHONE_ID: optionalString,
   GOOGLE_MAPS_KEY: optionalString,

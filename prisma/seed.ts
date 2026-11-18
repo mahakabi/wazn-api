@@ -97,7 +97,7 @@ async function seedGyms(): Promise<void> {
 }
 
 async function seedUser(user: SeedUser): Promise<void> {
-  const data = { phone: user.phone, name: user.name, role: Role[user.role] };
+  const data = { email: user.email, phone: user.phone, name: user.name, role: Role[user.role] };
   await prisma.user.upsert({
     where: { id: user.id },
     create: { id: user.id, ...data },
@@ -118,8 +118,13 @@ async function seedUser(user: SeedUser): Promise<void> {
 }
 
 async function seedUsers(): Promise<void> {
-  const adminPhone = process.env.SEED_ADMIN_PHONE ?? '+966500000001';
-  await seedUser({ id: 'seed_user_admin', phone: adminPhone, name: 'Admin', role: 'ADMIN' });
+  await seedUser({
+    id: 'seed_user_admin',
+    email: (process.env.SEED_ADMIN_EMAIL ?? 'admin@wazn.local').trim().toLowerCase(),
+    phone: '+966500000001',
+    name: 'Admin',
+    role: 'ADMIN',
+  });
   for (const user of SEED_USERS) {
     await seedUser(user);
   }

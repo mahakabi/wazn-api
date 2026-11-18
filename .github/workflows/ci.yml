@@ -19,11 +19,18 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U wazn -d wazn"
           --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       DATABASE_URL: postgresql://wazn:wazn@localhost:5432/wazn?schema=public
       REDIS_URL: redis://localhost:6379
       JWT_ACCESS_SECRET: ci-access-secret-0123456789abcdef0123
       JWT_REFRESH_SECRET: ci-refresh-secret-0123456789abcdef012
+      OTP_SECRET: ci-otp-secret-0123456789abcdef0123456
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

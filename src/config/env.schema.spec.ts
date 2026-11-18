@@ -5,6 +5,7 @@ const validEnv = {
   REDIS_URL: 'redis://localhost:6379',
   JWT_ACCESS_SECRET: 'a'.repeat(32),
   JWT_REFRESH_SECRET: 'b'.repeat(32),
+  OTP_SECRET: 'c'.repeat(32),
 };
 
 describe('validateEnv', () => {

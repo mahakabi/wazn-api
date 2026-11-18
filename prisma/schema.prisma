@@ -70,18 +70,20 @@ enum ReportType {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  phone         String    @unique // E.164, e.g. +966501234567
+  id            String         @id @default(cuid())
+  email         String?        @unique // sign-in identity, lower-cased
+  phone         String?        @unique // E.164, e.g. +966501234567; collected at booking
   name          String?
-  role          Role      @default(MEMBER)
-  locale        String    @default("en")
-  whatsappOptIn Boolean   @default(false) @map("whatsapp_opt_in")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  role          Role           @default(MEMBER)
+  locale        String         @default("en")
+  whatsappOptIn Boolean        @default(false) @map("whatsapp_opt_in")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
   staff         Staff[]
   bookings      Booking[]
   saved         SavedGym[]
   reports       Report[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
 }
@@ -104,19 +106,19 @@ model Gym {
 }
 
 model Branch {
-  id        String     @id @default(cuid())
-  gymId     String     @map("gym_id")
-  gym       Gym        @relation(fields: [gymId], references: [id])
+  id        String                                @id @default(cuid())
+  gymId     String                                @map("gym_id")
+  gym       Gym                                   @relation(fields: [gymId], references: [id])
   district  String
-  city      String     @default("Riyadh")
+  city      String                                @default("Riyadh")
   gender    Gender
   lat       Float
   lng       Float
   /// Generated from lat/lng in SQL (see migration). Read-only; used by ST_DWithin with a GiST index.
   location  Unsupported("geography(Point,4326)")?
   photos    String[]
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
+  createdAt DateTime                              @default(now()) @map("created_at")
+  updatedAt DateTime                              @updatedAt @map("updated_at")
   plans     Plan[]
   staff     Staff[]
   savedBy   SavedGym[]
@@ -261,6 +263,23 @@ model Report {
 
   @@index([resolved, type, createdAt])
   @@map("reports")
+}
+
+/// Opaque refresh tokens, stored only as SHA-256 hashes. Every refresh rotates the token;
+/// all tokens from one sign-in share a `familyId` so reuse of a rotated token can revoke the family.
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  familyId  String    @map("family_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
 }
 
 /// Admin-tunable values (default_commission, code_validity_days, price_freshness_days).
