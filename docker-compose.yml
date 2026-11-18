@@ -1,0 +1,39 @@
+name: wazn
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: wazn-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wazn
+      POSTGRES_PASSWORD: wazn
+      POSTGRES_DB: wazn
+      TZ: UTC
+    ports:
+      - '5432:5432'
+    volumes:
+      - wazn-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U wazn -d wazn']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: wazn-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - wazn-redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  wazn-pg:
+  wazn-redis:

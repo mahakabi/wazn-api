@@ -1,0 +1,274 @@
+// Wazn data model. Tables and columns are snake_case in Postgres (via @@map / @map)
+// so raw SQL (PostGIS queries) stays readable. Money: whole SAR as Int; commission as Decimal.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  MEMBER
+  GYM_STAFF
+  ADMIN
+}
+
+enum StaffRole {
+  OWNER
+  BRANCH_MANAGER
+  FRONT_DESK
+}
+
+enum GymStatus {
+  DRAFT
+  LISTED
+  PARTNER
+}
+
+enum Gender {
+  WOMEN
+  MEN
+  MIXED
+}
+
+enum OfferStatus {
+  PENDING_REVIEW
+  SCHEDULED
+  LIVE
+  ENDED
+  REJECTED
+}
+
+enum BookingStatus {
+  ISSUED
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+}
+
+enum AlertMode {
+  BELOW_PRICE
+  ANY_OFFER
+  OFF
+}
+
+enum InvoiceStatus {
+  DUE
+  PAID
+  OVERDUE
+}
+
+enum ReportType {
+  PRICE_MISMATCH
+  OUTDATED_PRICE
+  REVIEW_FLAG
+}
+
+model User {
+  id            String    @id @default(cuid())
+  phone         String    @unique // E.164, e.g. +966501234567
+  name          String?
+  role          Role      @default(MEMBER)
+  locale        String    @default("en")
+  whatsappOptIn Boolean   @default(false) @map("whatsapp_opt_in")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  staff         Staff[]
+  bookings      Booking[]
+  saved         SavedGym[]
+  reports       Report[]
+
+  @@map("users")
+}
+
+model Gym {
+  id             String    @id @default(cuid())
+  nameEn         String    @map("name_en")
+  nameAr         String    @map("name_ar")
+  status         GymStatus @default(LISTED)
+  commissionRate Decimal?  @map("commission_rate") @db.Decimal(4, 3) // null = use default_commission setting
+  crNumber       String?   @map("cr_number")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  branches       Branch[]
+  staff          Staff[]
+  invoices       Invoice[]
+
+  @@index([status])
+  @@map("gyms")
+}
+
+model Branch {
+  id        String     @id @default(cuid())
+  gymId     String     @map("gym_id")
+  gym       Gym        @relation(fields: [gymId], references: [id])
+  district  String
+  city      String     @default("Riyadh")
+  gender    Gender
+  lat       Float
+  lng       Float
+  /// Generated from lat/lng in SQL (see migration). Read-only; used by ST_DWithin with a GiST index.
+  location  Unsupported("geography(Point,4326)")?
+  photos    String[]
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  plans     Plan[]
+  staff     Staff[]
+  savedBy   SavedGym[]
+  reports   Report[]
+
+  @@index([gymId])
+  @@index([location], type: Gist)
+  @@map("branches")
+}
+
+model Plan {
+  id           String    @id @default(cuid())
+  branchId     String    @map("branch_id")
+  branch       Branch    @relation(fields: [branchId], references: [id])
+  months       Int // 1, 3, 6, 12
+  price        Int // SAR, whole riyals
+  renewalPrice Int       @map("renewal_price")
+  joiningFee   Int       @default(0) @map("joining_fee")
+  freezeDays   Int       @default(0) @map("freeze_days")
+  refundDays   Int       @default(0) @map("refund_days")
+  verifiedAt   DateTime  @map("verified_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  offers       Offer[]
+  bookings     Booking[]
+
+  @@unique([branchId, months])
+  @@index([verifiedAt])
+  @@map("plans")
+}
+
+/// At most one LIVE offer per plan — enforced in the offers use cases (Prisma cannot model partial indexes).
+model Offer {
+  id          String      @id @default(cuid())
+  planId      String      @map("plan_id")
+  plan        Plan        @relation(fields: [planId], references: [id])
+  title       String
+  price       Int
+  wasPrice    Int         @map("was_price")
+  startsAt    DateTime    @map("starts_at")
+  endsAt      DateTime    @map("ends_at")
+  status      OfferStatus @default(PENDING_REVIEW)
+  source      String? // instagram | snapchat | website | portal
+  sourceImage String?     @map("source_image")
+  confidence  String? // high | low (from extractor)
+  reviewedBy  String?     @map("reviewed_by")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  bookings    Booking[]
+
+  @@index([planId, status])
+  @@index([status])
+  @@map("offers")
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  code        String        @unique // WZ-XXXX
+  userId      String        @map("user_id")
+  user        User          @relation(fields: [userId], references: [id])
+  planId      String        @map("plan_id")
+  plan        Plan          @relation(fields: [planId], references: [id])
+  offerId     String?       @map("offer_id")
+  offer       Offer?        @relation(fields: [offerId], references: [id])
+  lockedPrice Int           @map("locked_price")
+  commission  Decimal?      @db.Decimal(10, 2) // set on confirm
+  status      BookingStatus @default(ISSUED)
+  expiresAt   DateTime      @map("expires_at")
+  confirmedAt DateTime?     @map("confirmed_at")
+  confirmedBy String?       @map("confirmed_by")
+  confirmer   Staff?        @relation(fields: [confirmedBy], references: [id])
+  invoiceId   String?       @map("invoice_id")
+  invoice     Invoice?      @relation(fields: [invoiceId], references: [id])
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  reports     Report[]
+
+  @@index([userId])
+  @@index([status, expiresAt])
+  @@index([status, confirmedAt])
+  @@map("bookings")
+}
+
+model Staff {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id])
+  gymId     String    @map("gym_id")
+  gym       Gym       @relation(fields: [gymId], references: [id])
+  role      StaffRole
+  branchId  String?   @map("branch_id") // null = all branches
+  branch    Branch?   @relation(fields: [branchId], references: [id])
+  createdAt DateTime  @default(now()) @map("created_at")
+  confirmed Booking[]
+
+  @@unique([userId, gymId])
+  @@index([gymId])
+  @@map("staff")
+}
+
+model SavedGym {
+  userId     String    @map("user_id")
+  branchId   String    @map("branch_id")
+  alertMode  AlertMode @default(ANY_OFFER) @map("alert_mode")
+  alertBelow Int?      @map("alert_below")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  user       User      @relation(fields: [userId], references: [id])
+  branch     Branch    @relation(fields: [branchId], references: [id])
+
+  @@id([userId, branchId])
+  @@index([branchId])
+  @@map("saved_gyms")
+}
+
+model Invoice {
+  id        String        @id @default(cuid())
+  gymId     String        @map("gym_id")
+  gym       Gym           @relation(fields: [gymId], references: [id])
+  period    String // YYYY-MM, e.g. 2026-11
+  total     Decimal       @db.Decimal(10, 2)
+  status    InvoiceStatus @default(DUE)
+  dueAt     DateTime      @map("due_at")
+  createdAt DateTime      @default(now()) @map("created_at")
+  bookings  Booking[]
+
+  @@unique([gymId, period])
+  @@map("invoices")
+}
+
+model Report {
+  id        String     @id @default(cuid())
+  type      ReportType
+  branchId  String     @map("branch_id")
+  branch    Branch     @relation(fields: [branchId], references: [id])
+  userId    String?    @map("user_id")
+  user      User?      @relation(fields: [userId], references: [id])
+  bookingId String?    @map("booking_id")
+  booking   Booking?   @relation(fields: [bookingId], references: [id])
+  details   String
+  resolved  Boolean    @default(false)
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@index([resolved, type, createdAt])
+  @@map("reports")
+}
+
+/// Admin-tunable values (default_commission, code_validity_days, price_freshness_days).
+/// Defaults live in src/modules/settings/domain/setting-defaults.ts.
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
