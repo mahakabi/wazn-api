@@ -7,6 +7,8 @@ const config: Config = {
   transform: { '^.+\\.ts$': ['ts-jest', { tsconfig: '<rootDir>/../tsconfig.json' }] },
   collectCoverageFrom: ['**/*.ts', '!generated/**', '!main.ts', '!**/*.module.ts'],
   coverageDirectory: '../coverage',
+  // The generated Prisma client imports './x.js' (needed by Node at runtime); Jest resolves the .ts source.
+  moduleNameMapper: { '^(\\.{1,2}/.*)\\.js$': '$1' },
   testEnvironment: 'node',
 };
 
